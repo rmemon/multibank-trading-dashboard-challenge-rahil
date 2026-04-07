@@ -4,6 +4,17 @@ A full-stack **coding challenge** implementation: a mock market engine powers **
 
 ---
 
+## 🌐 Live deployment
+
+| Environment | URL |
+|-------------|-----|
+| **Frontend** (Netlify) | [https://multibank-trading-dashboard-rahil.netlify.app/](https://multibank-trading-dashboard-rahil.netlify.app/) |
+| **Backend API** (Render) | [https://multibank-trading-dashboard-challenge.onrender.com/](https://multibank-trading-dashboard-challenge.onrender.com/) |
+
+The Render backend uses a **free tier** that can sleep when idle. The frontend shows a loading state until [`/api/health`](https://multibank-trading-dashboard-challenge.onrender.com/api/health) responds, then the app loads.
+
+---
+
 ## 🎯 Objective
 
 Build a **real-time trading dashboard** that displays live ticker prices and interactive charts for selected financial instruments—using a simulated or mock feed, clear API boundaries, and a responsive UI.
