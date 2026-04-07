@@ -12,6 +12,8 @@ html[data-theme="dark"] {
   --bg: #0e1018;
   --surface: #141824;
   --surface-raised: #1a1f2e;
+  /* Slightly lifted strip (chart header) — matches reference coding-challenge */
+  --surface-2: #1c2233;
   --border: #2a3142;
   --border-muted: rgba(42, 49, 66, 0.6);
   --text: #e8e9ed;
@@ -23,8 +25,12 @@ html[data-theme="dark"] {
   --logo-glow: rgba(94, 234, 212, 0.25);
   --chart-up: #34d399;
   --chart-down: #fb7185;
+  /* Reference-style series (blue area chart) */
+  --chart-series: #3b82f6;
+  --chart-series-fill: rgba(59, 130, 246, 0.35);
   --chart-grid: rgba(100, 116, 139, 0.22);
   --chart-grid-line: rgba(71, 85, 105, 0.55);
+  --chart-grid-dim: rgba(255, 255, 255, 0.06);
   --chart-grid-line-faint: rgba(71, 85, 105, 0.22);
   --chart-band-a: rgba(15, 23, 42, 0.55);
   --chart-band-b: rgba(15, 23, 42, 0.28);
@@ -58,6 +64,7 @@ html[data-theme="light"] {
   --bg: #f8fafc;
   --surface: #ffffff;
   --surface-raised: #f1f5f9;
+  --surface-2: #f8fafc;
   --border: #e2e8f0;
   --border-muted: rgba(148, 163, 184, 0.55);
   --text: #0f172a;
@@ -69,8 +76,11 @@ html[data-theme="light"] {
   --logo-glow: rgba(13, 148, 136, 0.22);
   --chart-up: #059669;
   --chart-down: #e11d48;
+  --chart-series: #2563eb;
+  --chart-series-fill: rgba(37, 99, 235, 0.28);
   --chart-grid: rgba(148, 163, 184, 0.35);
   --chart-grid-line: rgba(100, 116, 139, 0.4);
+  --chart-grid-dim: rgba(15, 23, 42, 0.06);
   --chart-grid-line-faint: rgba(148, 163, 184, 0.22);
   --chart-band-a: rgba(241, 245, 249, 0.95);
   --chart-band-b: rgba(255, 255, 255, 0.75);

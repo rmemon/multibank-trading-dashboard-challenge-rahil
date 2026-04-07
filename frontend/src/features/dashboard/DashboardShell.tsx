@@ -1,16 +1,36 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
+import { formatUsd } from "../../lib/formatUsd";
 import { PriceChart } from "./components/PriceChart";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { TickerList } from "./components/TickerList";
-import { formatUsd, getMockChartPoints, MOCK_TICKERS } from "./mock/marketMock";
+import { CHART_TIMEFRAMES, CHART_TIMEFRAME_ORDER, type ChartTimeframe } from "./chartTimeframe";
+import { useMarketDashboard } from "./hooks/useMarketDashboard";
 import "./DashboardPage.css";
 
 export function DashboardShell() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
-  const [selectedSymbol, setSelectedSymbol] = useState(MOCK_TICKERS[0]?.symbol ?? "AAPL");
+  const [selectedSymbol, setSelectedSymbol] = useState("AAPL");
+  const [chartTimeframe, setChartTimeframe] = useState<ChartTimeframe>("1H");
+
+  const {
+    quotes,
+    history,
+    lastAlert,
+    clearAlert,
+    error,
+    bootstrapping,
+    historyLoading,
+    wsConnected,
+  } = useMarketDashboard(selectedSymbol, chartTimeframe);
+
+  useEffect(() => {
+    if (quotes.length > 0 && !quotes.some((q) => q.symbol === selectedSymbol)) {
+      setSelectedSymbol(quotes[0]!.symbol);
+    }
+  }, [quotes, selectedSymbol]);
 
   function handleSignOut() {
     logout();
@@ -18,11 +38,11 @@ export function DashboardShell() {
   }
 
   const selected = useMemo(
-    () => MOCK_TICKERS.find((t) => t.symbol === selectedSymbol) ?? MOCK_TICKERS[0],
-    [selectedSymbol],
+    () => quotes.find((t) => t.symbol === selectedSymbol) ?? quotes[0],
+    [quotes, selectedSymbol],
   );
 
-  const chartData = useMemo(() => getMockChartPoints(selectedSymbol), [selectedSymbol]);
+  const chartData = history;
 
   const stats = useMemo(() => {
     if (!chartData.length) return null;
@@ -33,6 +53,9 @@ export function DashboardShell() {
     const low = Math.min(...prices);
     return { open, high, low, close };
   }, [chartData]);
+
+  const displaySymbol = selected?.symbol ?? selectedSymbol;
+  const displayName = selected?.name ?? "—";
 
   return (
     <div className="dashboard">
@@ -57,9 +80,16 @@ export function DashboardShell() {
               Sign out
             </button>
             <div className="dashboard__status">
-              <span className="dashboard__live" title="Connect WebSocket to enable live feed">
+              <span
+                className={`dashboard__live${wsConnected ? "" : " dashboard__live--offline"}`}
+                title={
+                  wsConnected
+                    ? "WebSocket connected — receiving live ticks"
+                    : "WebSocket disconnected — prices may be stale"
+                }
+              >
                 <span className="dashboard__live-dot" aria-hidden />
-                Live
+                {wsConnected ? "Live" : "Offline"}
               </span>
               <time className="dashboard__clock tabular" dateTime={new Date().toISOString()}>
                 {new Date().toLocaleString(undefined, {
@@ -75,23 +105,59 @@ export function DashboardShell() {
 
       <div className="dashboard__body">
         <div className="dashboard__container">
+          {error && (
+            <p className="dashboard__error" role="alert">
+              {error}
+            </p>
+          )}
+          {bootstrapping && (
+            <p className="dashboard__loading" aria-live="polite">
+              Loading market data…
+            </p>
+          )}
           <p className="dashboard__intro">
-            Choose a symbol from your watchlist to explore the chart and session stats.
+            Choose a symbol from your watchlist to explore the chart and session stats. Prices update over WebSocket when
+            connected.
           </p>
+          {lastAlert && (
+            <div
+              key={lastAlert.id}
+              className={`alert-toast alert-toast--${lastAlert.kind}`}
+              role="status"
+            >
+              <span className="alert-toast__text">
+                <strong>{lastAlert.symbol}</strong> — {lastAlert.message}
+              </span>
+              <button type="button" className="alert-toast__dismiss" onClick={clearAlert}>
+                Dismiss
+              </button>
+            </div>
+          )}
           <div className="dashboard__grid">
             <aside className="dashboard__sidebar">
-              <TickerList
-                tickers={MOCK_TICKERS}
-                selectedSymbol={selectedSymbol}
-                onSelect={setSelectedSymbol}
-              />
+              <TickerList tickers={quotes} selectedSymbol={selectedSymbol} onSelect={setSelectedSymbol} />
             </aside>
 
-            <main className="dashboard__main">
-              <section className="dashboard__panel" aria-labelledby="chart-heading">
+            <main className="dashboard__main chart-column">
+              <div className="resolution-row">
+                <span className="resolution-row__label">Range</span>
+                {CHART_TIMEFRAME_ORDER.map((tf) => (
+                  <button
+                    key={tf}
+                    type="button"
+                    className={`chip${chartTimeframe === tf ? " chip-on" : ""}`}
+                    aria-pressed={chartTimeframe === tf}
+                    onClick={() => setChartTimeframe(tf)}
+                  >
+                    {tf}
+                  </button>
+                ))}
+              </div>
+
+              <section className="dashboard__panel dashboard__panel--chart" aria-labelledby="chart-heading">
                 <div className="dashboard__panel-bar">
                   <h2 id="chart-heading" className="visually-hidden">
-                    Price chart for {selected.symbol}
+                    Price chart for {displaySymbol}
                   </h2>
                   {stats && (
                     <dl className="stat-strip">
@@ -114,7 +180,13 @@ export function DashboardShell() {
                     </dl>
                   )}
                 </div>
-                <PriceChart symbol={selected.symbol} name={selected.name} data={chartData} />
+                <PriceChart
+                  symbol={displaySymbol}
+                  name={displayName}
+                  data={chartData}
+                  loading={historyLoading || bootstrapping}
+                  rangeLabel={CHART_TIMEFRAMES[chartTimeframe].sessionLabel}
+                />
               </section>
             </main>
           </div>

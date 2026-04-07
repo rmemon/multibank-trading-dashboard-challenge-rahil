@@ -1,5 +1,5 @@
-import type { TickerQuote } from "../mock/marketMock";
-import { formatUsd } from "../mock/marketMock";
+import { formatUsd } from "../../../lib/formatUsd";
+import type { TickerQuote } from "../../../types/market";
 
 type Props = {
   tickers: TickerQuote[];
@@ -15,6 +15,9 @@ export function TickerList({ tickers, selectedSymbol, onSelect }: Props) {
         <span className="ticker-list__count">{tickers.length} symbols</span>
       </div>
       <ul className="ticker-list__items">
+        {tickers.length === 0 && (
+          <li className="ticker-list__empty">No symbols loaded yet.</li>
+        )}
         {tickers.map((t) => {
           const up = t.changePct >= 0;
           const selected = t.symbol === selectedSymbol;

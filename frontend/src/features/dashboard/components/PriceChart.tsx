@@ -4,264 +4,124 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import type { ChartPoint } from "../mock/marketMock";
-import { formatUsd } from "../mock/marketMock";
+import { formatUsd } from "../../../lib/formatUsd";
+import type { ChartPoint } from "../../../types/market";
 
 type Props = {
   symbol: string;
   name: string;
   data: ChartPoint[];
+  loading?: boolean;
+  /** Shown next to % change (e.g. session, 24h, 7d) */
+  rangeLabel: string;
 };
 
-type PointRow = ChartPoint & { _i: number };
+type Row = { t: string; price: number; label: string };
 
-function ChartTooltip({
-  active,
-  payload,
-  label,
-  series,
-}: {
-  active?: boolean;
-  // Recharts tooltip payload shape; we only read .payload per point
-  payload?: ReadonlyArray<{ payload?: PointRow }>;
-  label?: string | number;
-  series: ChartPoint[];
-}) {
-  if (!active || !payload?.length) return null;
-  const raw = payload[0]?.payload;
-  if (!raw) return null;
-  const row = raw as PointRow;
-  const idx = row._i;
-  let deltaStr: string | null = null;
-  if (idx > 0) {
-    const prev = series[idx - 1];
-    const d = row.price - prev.price;
-    const pct = (d / prev.price) * 100;
-    const up = d >= 0;
-    deltaStr = `${up ? "+" : ""}${formatUsd(Math.abs(d))} (${up ? "+" : ""}${pct.toFixed(3)}%)`;
-  }
-
-  return (
-    <div className="chart-tooltip">
-      <div className="chart-tooltip__row chart-tooltip__row--label">
-        <span className="chart-tooltip__badge">Price</span>
-        <span className="chart-tooltip__time">{String(label ?? row.t)}</span>
-      </div>
-      <span className="chart-tooltip__price tabular">{formatUsd(row.price)}</span>
-      {deltaStr && <span className="chart-tooltip__delta tabular">{deltaStr}</span>}
-    </div>
-  );
-}
-
-export function PriceChart({ symbol, name, data }: Props) {
-  const chartRows = useMemo(
-    () => data.map((p, i) => ({ ...p, _i: i })) as PointRow[],
+/**
+ * Reference coding-challenge layout: `panel-head` + `chart-wrap`, ComposedChart with
+ * Area (fill) + Line (stroke) for a clear price path.
+ */
+export function PriceChart({ symbol, name, data, loading, rangeLabel }: Props) {
+  const rows = useMemo<Row[]>(
+    () => data.map((p) => ({ t: p.t, price: p.price, label: p.t })),
     [data],
   );
 
-  const { up, lastPrice, sessionChangePct, stroke, strokeRgb } = useMemo(() => {
-    if (data.length < 2) {
-      return {
-        up: true,
-        lastPrice: data[0]?.price ?? 0,
-        sessionChangePct: 0,
-        stroke: "var(--chart-up)",
-        strokeRgb: "52, 211, 153",
-      };
+  const { lastPrice, deltaPct, up } = useMemo(() => {
+    if (!data.length) {
+      return { lastPrice: null as number | null, deltaPct: 0, up: true };
     }
-    const first = data[0].price;
-    const last = data[data.length - 1].price;
-    const u = last >= first;
-    const sessionChangePct = ((last - first) / first) * 100;
-    return {
-      up: u,
-      lastPrice: last,
-      sessionChangePct,
-      stroke: u ? "var(--chart-up)" : "var(--chart-down)",
-      strokeRgb: u ? "52, 211, 153" : "251, 113, 133",
-    };
+    const last = data[data.length - 1]!.price;
+    const first = data[0]!.price;
+    const deltaPct = first !== 0 ? ((last - first) / first) * 100 : 0;
+    return { lastPrice: last, deltaPct, up: last >= first };
   }, [data]);
 
-  const fillId = `area-${symbol.replace(/[^a-zA-Z0-9]/g, "")}`;
-  const lastIdx = Math.max(0, chartRows.length - 1);
-
-  const renderLastDot = useMemo(() => {
-    const Dot = (props: { cx?: number; cy?: number; index?: number }) => {
-      const { cx, cy, index } = props;
-      if (cx == null || cy == null || index !== lastIdx) return null;
-      return (
-        <g className="price-chart__last-dot">
-          <circle cx={cx} cy={cy} r={10} fill={`rgba(${strokeRgb}, 0.22)`} />
-          <circle cx={cx} cy={cy} r={5} fill="var(--chart-surface)" stroke={stroke} strokeWidth={2.5} />
-          <circle cx={cx} cy={cy} r={2.5} fill={stroke} />
-        </g>
-      );
-    };
-    return Dot;
-  }, [lastIdx, stroke, strokeRgb]);
-
   return (
-    <div className="price-chart">
-      <div className="price-chart__toolbar">
-        <div className="price-chart__identity">
-          <h2 className="price-chart__symbol">{symbol}</h2>
-          <p className="price-chart__name">{name}</p>
+    <div className="chart-panel-root">
+      <div className="panel-head chart-head">
+        <div>
+          <h2 className="chart-panel__title">{symbol}</h2>
+          {name && name !== "—" && <p className="chart-panel__subtitle">{name}</p>}
         </div>
-
-        <div className="price-chart__quote" aria-live="polite">
-          <span className="price-chart__last tabular">{formatUsd(lastPrice)}</span>
-          <span className={`price-chart__session${up ? " price-chart__session--up" : " price-chart__session--down"}`}>
-            {sessionChangePct >= 0 ? "+" : ""}
-            {sessionChangePct.toFixed(2)}% <span className="price-chart__session-label">session</span>
-          </span>
-        </div>
-
-        <div className="price-chart__tf" role="group" aria-label="Time range (preview)">
-          {["1H", "1D", "1W", "1M"].map((tf, i) => (
-            <span key={tf} className={`price-chart__tf-pill${i === 0 ? " price-chart__tf-pill--active" : ""}`}>
-              {tf}
+        {lastPrice != null && data.length > 0 && (
+          <div className="chart-stat">
+            <span className="chart-stat__last tabular">{formatUsd(lastPrice)}</span>
+            <span className={`chart-stat__chg${up ? " chart-stat__chg--up" : " chart-stat__chg--down"}`}>
+              {deltaPct >= 0 ? "+" : ""}
+              {deltaPct.toFixed(2)}% <span className="chart-stat__range">{rangeLabel}</span>
             </span>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
 
-      <div
-        className="price-chart__frame"
-        role="img"
-        aria-label={`Price chart for ${symbol}, ${chartRows.length} points`}
-      >
-        <div className="price-chart__canvas">
-          <ResponsiveContainer width="100%" height="100%" minHeight={340}>
-            <ComposedChart data={chartRows} margin={{ top: 16, right: 8, left: 4, bottom: 8 }}>
+      <div className="chart-wrap">
+        {data.length === 0 ? (
+          <p className="chart-wrap__empty">{loading ? "Loading chart…" : "No data for this symbol."}</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={400}>
+            <ComposedChart data={rows} margin={{ top: 12, right: 12, left: 0, bottom: 8 }}>
               <defs>
-                <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={stroke} stopOpacity={0.5} />
-                  <stop offset="50%" stopColor={stroke} stopOpacity={0.14} />
-                  <stop offset="100%" stopColor={stroke} stopOpacity={0} />
+                <linearGradient id="fillPrice" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--chart-series)" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="var(--chart-series)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-
-              {/* Fine "graph paper" grid — faint, behind major grid */}
-              <CartesianGrid
-                yAxisId="price"
-                horizontal
-                vertical
-                stroke="var(--chart-grid-line-faint)"
-                strokeOpacity={1}
-                strokeDasharray="2 5"
-                fill="none"
-                horizontalCoordinatesGenerator={({ offset }) => {
-                  const { top, height } = offset;
-                  const n = 11;
-                  return Array.from({ length: n - 1 }, (_, i) => top + (height * (i + 1)) / n);
-                }}
-                verticalCoordinatesGenerator={({ offset }) => {
-                  const { left, width } = offset;
-                  const n = 13;
-                  return Array.from({ length: n - 1 }, (_, i) => left + (width * (i + 1)) / n);
-                }}
-              />
-
-              {/* Major grid locked to axis ticks + alternating price rows (stock-terminal look) */}
-              <CartesianGrid
-                yAxisId="price"
-                syncWithTicks
-                horizontal
-                vertical
-                stroke="var(--chart-grid-line)"
-                strokeOpacity={0.95}
-                fill="none"
-                horizontalFill={["var(--chart-band-a)", "var(--chart-band-b)"]}
-              />
-
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid-dim)" />
               <XAxis
-                dataKey="t"
-                tick={{ fill: "var(--text-muted)", fontSize: 11, fontWeight: 500 }}
+                dataKey="label"
+                tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                 tickLine={false}
-                axisLine={{ stroke: "var(--chart-axis)" }}
-                interval="preserveStartEnd"
-                minTickGap={28}
-                dy={6}
+                axisLine={{ stroke: "var(--border)" }}
+                minTickGap={24}
               />
               <YAxis
-                yAxisId="price"
-                orientation="right"
                 domain={["auto", "auto"]}
-                tickCount={8}
-                tick={{ fill: "var(--text-muted)", fontSize: 11, fontWeight: 500 }}
+                tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                 tickLine={false}
-                axisLine={{ stroke: "var(--chart-axis)" }}
+                axisLine={{ stroke: "var(--border)" }}
+                width={64}
                 tickFormatter={(v: number) =>
                   v >= 1000 ? `${(v / 1000).toFixed(2)}k` : v.toFixed(v < 1 ? 4 : 2)
                 }
-                width={68}
-                dx={4}
               />
-
-              <ReferenceLine
-                yAxisId="price"
-                y={lastPrice}
-                stroke={stroke}
-                strokeDasharray="5 5"
-                strokeOpacity={0.4}
-                strokeWidth={1}
-              />
-
               <Tooltip
-                content={(props) => (
-                  <ChartTooltip
-                    active={props.active}
-                    payload={props.payload}
-                    label={props.label}
-                    series={data}
-                  />
-                )}
-                cursor={{
-                  stroke: "rgba(148, 163, 184, 0.5)",
-                  strokeWidth: 1,
-                  strokeDasharray: "4 4",
+                contentStyle={{
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
                 }}
-                wrapperStyle={{ outline: "none" }}
-                isAnimationActive={false}
+                labelStyle={{ color: "var(--text-muted)" }}
+                formatter={(value) => [
+                  typeof value === "number" ? formatUsd(value) : "—",
+                  "Price",
+                ]}
               />
-
               <Area
-                yAxisId="price"
                 type="monotone"
                 dataKey="price"
                 stroke="none"
-                fill={`url(#${fillId})`}
-                fillOpacity={1}
-                isAnimationActive={true}
-                animationDuration={720}
-                animationEasing="ease-out"
+                fill="url(#fillPrice)"
+                isAnimationActive={false}
               />
               <Line
-                yAxisId="price"
                 type="monotone"
                 dataKey="price"
-                stroke={stroke}
-                strokeWidth={2.5}
-                dot={renderLastDot}
-                activeDot={{
-                  r: 5,
-                  strokeWidth: 2,
-                  stroke: "var(--chart-surface)",
-                  fill: stroke,
-                }}
-                isAnimationActive={true}
-                animationDuration={720}
-                animationEasing="ease-out"
+                stroke="var(--chart-series)"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 0 }}
+                isAnimationActive={false}
               />
             </ComposedChart>
           </ResponsiveContainer>
-        </div>
+        )}
       </div>
     </div>
   );
