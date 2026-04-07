@@ -1,0 +1,27 @@
+# Full stack: UI on http://localhost:3000 (nginx proxies /api and /ws to the API).
+# Requires Docker / Docker Compose. Non-Docker workflow is unchanged (npm in backend/ and frontend/).
+#
+# Optional: create a `.env` next to this file with JWT_SECRET, CORS_ORIGIN, etc.
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: "3001"
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      MARKET_TICK_MS: ${MARKET_TICK_MS:-2000}
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api

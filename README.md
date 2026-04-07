@@ -52,7 +52,7 @@ Build a **real-time trading dashboard** that displays live ticker prices and int
 
 - 🧩 **Structure** — Microservice-friendly separation: market engine, HTTP routes, WebSocket layer, services (auth, alerts, history cache).
 - 🧪 **Tests** — `npm test` in `backend/` (history cache + alert logic).
-- 📦 **Docker** — Not wired in this submission; run with `npm` locally (see below).
+- 📦 **Docker** — Optional `docker compose` stack (see below); `npm` workflows stay the same.
 
 ### 🎁 Bonus features (implemented)
 
@@ -110,6 +110,19 @@ npm run dev
 
 Open the Vite URL (usually **http://localhost:5173**). Sign in with a **demo account** from the login page (or `frontend/src/features/auth/demoAccounts.ts`). The app loads tickers/history over REST and opens the WebSocket with the stored JWT.
 
+### 🐳 Docker (optional)
+
+From the **repository root**, build and start the API plus an nginx front that proxies `/api` and `/ws` to the backend (same-origin as local Vite):
+
+```bash
+docker compose up --build
+```
+
+- **UI:** [http://localhost:3000](http://localhost:3000)  
+- **API (direct):** [http://localhost:3001](http://localhost:3001)  
+
+Override secrets and CORS via a root `.env` file (e.g. `JWT_SECRET`, `CORS_ORIGIN`) or your shell environment; see `docker-compose.yml`. You do **not** need Docker for normal development—use `npm` in `backend/` and `frontend/` as above.
+
 ---
 
 ## 🧪 Tests
@@ -141,7 +154,7 @@ Frontend: use `npm run build` and `npm run lint` as needed; there is no separate
 - **Prices are simulated**, not live market data. Alert bands use each instrument’s base price so crossings occur under normal mock volatility.
 - **JWT in `localStorage`** is acceptable for a challenge; production would favor httpOnly cookies, CSRF, and refresh flows.
 - **Historical cache** is in-process with a short TTL — fine for a single instance, not a distributed cluster without shared storage.
-- **Docker/Kubernetes** are omitted; the app is intended to run via `npm` as above.
+- **Docker** is optional (`docker compose`); **Kubernetes** is not included. Without containers, use `npm` as above.
 
 ---
 
