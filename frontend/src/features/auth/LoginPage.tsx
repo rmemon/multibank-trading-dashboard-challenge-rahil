@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MOCK_CREDENTIALS } from "./mockCredentials";
+import { loginRequest } from "../../api/authApi";
+import { DEMO_ACCOUNTS } from "./demoAccounts";
 import { useAuth } from "./useAuth";
 import "./LoginPage.css";
 
@@ -10,18 +11,21 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    const ok =
-      email.trim() === MOCK_CREDENTIALS.email && password === MOCK_CREDENTIALS.password;
-    if (!ok) {
-      setError("Email or password does not match the demo account.");
-      return;
+    setSubmitting(true);
+    try {
+      const data = await loginRequest(email.trim(), password);
+      login(data.accessToken, data.user);
+      navigate("/", { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign in failed");
+    } finally {
+      setSubmitting(false);
     }
-    login();
-    navigate("/", { replace: true });
   }
 
   return (
@@ -32,26 +36,27 @@ export function LoginPage() {
             <span className="login-page__logo" aria-hidden />
             <div>
               <h1 className="login-page__title">Sign in</h1>
-              <p className="login-page__subtitle">Use your demo account to open the dashboard.</p>
+              <p className="login-page__subtitle">Use a demo account below or your own credentials.</p>
             </div>
           </div>
 
           <aside className="login-page__demo" aria-label="Demo credentials">
-            <p className="login-page__demo-label">Demo login</p>
-            <dl className="login-page__demo-list">
-              <div>
-                <dt>Email</dt>
-                <dd>
-                  <code>{MOCK_CREDENTIALS.email}</code>
-                </dd>
-              </div>
-              <div>
-                <dt>Password</dt>
-                <dd>
-                  <code>{MOCK_CREDENTIALS.password}</code>
-                </dd>
-              </div>
-            </dl>
+            <p className="login-page__demo-label">Demo accounts</p>
+            <ul className="login-page__demo-list">
+              {DEMO_ACCOUNTS.map((acc) => (
+                <li key={acc.email} className="login-page__demo-item">
+                  <span className="login-page__demo-name">{acc.label}</span>
+                  <div className="login-page__demo-row">
+                    <span className="login-page__demo-k">Email</span>
+                    <code>{acc.email}</code>
+                  </div>
+                  <div className="login-page__demo-row">
+                    <span className="login-page__demo-k">Password</span>
+                    <code>{acc.password}</code>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </aside>
 
           <form className="login-page__form" onSubmit={handleSubmit} noValidate>
@@ -65,6 +70,7 @@ export function LoginPage() {
                 value={email}
                 onChange={(ev) => setEmail(ev.target.value)}
                 placeholder="you@example.com"
+                disabled={submitting}
                 required
               />
             </label>
@@ -78,6 +84,7 @@ export function LoginPage() {
                 value={password}
                 onChange={(ev) => setPassword(ev.target.value)}
                 placeholder="••••••••"
+                disabled={submitting}
                 required
               />
             </label>
@@ -86,8 +93,8 @@ export function LoginPage() {
                 {error}
               </p>
             )}
-            <button type="submit" className="login-page__submit">
-              Sign in
+            <button type="submit" className="login-page__submit" disabled={submitting}>
+              {submitting ? "Signing in…" : "Sign in"}
             </button>
           </form>
         </div>

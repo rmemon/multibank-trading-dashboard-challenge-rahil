@@ -8,7 +8,7 @@ import { formatUsd, getMockChartPoints, MOCK_TICKERS } from "./mock/marketMock";
 import "./DashboardPage.css";
 
 export function DashboardShell() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [selectedSymbol, setSelectedSymbol] = useState(MOCK_TICKERS[0]?.symbol ?? "AAPL");
 
@@ -46,6 +46,12 @@ export function DashboardShell() {
             </div>
           </div>
           <div className="dashboard__header-actions">
+            {user && (
+              <div className="dashboard__user" title={user.id}>
+                <span className="dashboard__user-label">Signed in as</span>
+                <span className="dashboard__user-email tabular">{user.email}</span>
+              </div>
+            )}
             <ThemeToggle />
             <button type="button" className="dashboard__sign-out" onClick={handleSignOut}>
               Sign out
